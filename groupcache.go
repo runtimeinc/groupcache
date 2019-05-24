@@ -34,6 +34,12 @@ import (
 	pb "github.com/runtimeinc/groupcache/groupcachepb"
 	"github.com/runtimeinc/groupcache/lru"
 	"github.com/runtimeinc/groupcache/singleflight"
+	// TESTING
+	"github.com/runtimeinc/clusterkit/slog"
+)
+
+var (
+	ErrItemNotFound = errors.New("ItemNotFound")
 )
 
 // A Getter loads data for a key.
@@ -279,6 +285,13 @@ func (g *Group) load(ctx Context, allowPeer bool, key string, dest Sink) (value 
 				if err == nil {
 					g.Stats.PeerLoads.Add(1)
 					return value, nil
+				}
+
+				// If item is not found, then don't do local lookup
+				if err == ErrItemNotFound {
+					slog.Infof("GROUPCACHE item not found %s", key)
+					g.Stats.PeerErrors.Add(1)
+					return nil, err
 				}
 				g.Stats.PeerErrors.Add(1)
 				// TODO(bradfitz): log the peer's error? keep
