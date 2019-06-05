@@ -169,7 +169,11 @@ func (p *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var value []byte
 	err := group.Get(wctx, key, AllocatingByteSliceSink(&value))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		status := http.StatusInternalServerError
+		if err == ErrItemNotFound {
+			status = http.StatusNotFound
+		}
+		http.Error(w, err.Error(), status)
 		return
 	}
 
@@ -213,6 +217,9 @@ func (h *httpGetter) Get(context Context, in *pb.GetRequest, out *pb.GetResponse
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
+		if res.StatusCode == http.StatusNotFound {
+			return ErrItemNotFound
+		}
 		return fmt.Errorf("server returned: %v", res.Status)
 	}
 	b := bufferPool.Get().(*bytes.Buffer)
